@@ -1,0 +1,10 @@
+schema_version: 1
+name: brewie_b20_standard_programs
+version: 0.1.0
+description: Standard brewing and maintenance programs for BrewieNext on Brewie B20
+requires:
+  procedure_language: 1
+  runner_api: 1
+  machine: brewie_b20
+entrypoints:
+  brew: workflows/beer_brewing.yml

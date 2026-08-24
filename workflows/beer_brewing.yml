@@ -1,0 +1,66 @@
+schema_version: 1
+name: beer_brewing
+description: Main BrewieNext ordered brewing workflow
+default_recipe: development_test
+
+steps:
+  - id: prepare_brew
+    label: Prepare brew
+    procedure: prepare_brew
+
+  - id: fill_mash_water
+    label: Fill mash water
+    procedure: fill_mash_water
+
+  - id: heat_mash_water
+    label: Heat mash water
+    procedure: heat_mash_water
+
+  - id: transfer_to_mash
+    label: Transfer to mash tank
+    procedure: transfer_water_to_mash
+
+  - id: fill_sparge_water
+    label: Fill sparge water
+    procedure: fill_sparge_water
+
+  - parallel:
+      id: mash_and_sparge_heat
+      label: Mash while heating sparge water
+      primary: mashing
+      branches:
+        - id: mashing
+          label: Two-rest mashing
+          procedure: two_rest_mashing
+        - id: heat_sparge_water
+          label: Heat sparge water
+          procedure: heat_sparge_water
+      join:
+        deadline: mashing
+        require:
+          heat_sparge_water: completed
+        on_failure: sparge_heating_failed
+
+  - id: sparging
+    label: Sparging
+    procedure: sparging
+
+  - id: boiling
+    label: Boiling
+    procedure: boiling
+
+  - id: hopping
+    label: Hopping
+    procedure: hopping
+
+  - id: cooling
+    label: Cooling
+    procedure: cooling
+
+  - id: sedimentation
+    label: Sedimentation
+    procedure: sedimentation
+
+  - id: transfer_to_fermenter
+    label: Transfer to fermenter
+    procedure: transfer_to_fermenter

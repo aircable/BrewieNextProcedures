@@ -1,0 +1,81 @@
+name: hopping
+description: Execute the AVR-managed four-stage hop-cage circulation sequence
+start_state: hop_stage_1
+states:
+  hop_stage_1:
+    description: Release cage 1 and circulate through it until cage 2 is due
+    action:
+    - run_hop_stage:
+        open_cages: [1]
+        start_minutes_remaining: hop_cage_1_minutes_remaining
+        end_minutes_remaining: hop_cage_2_minutes_remaining
+        session: start
+    - notify_user:
+        text: Hop cage 1 released; AVR circulation stage running
+    timeout_s: 3h
+    transition:
+    - action_complete: hop_stage_2
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  hop_stage_2:
+    description: Keep cage 1 open, release cage 2, and circulate until cage 3 is due
+    action:
+    - run_hop_stage:
+        open_cages: [1, 2]
+        start_minutes_remaining: hop_cage_2_minutes_remaining
+        end_minutes_remaining: hop_cage_3_minutes_remaining
+        session: continue
+    - notify_user:
+        text: Hop cage 2 released; circulating through cages 1 and 2
+    timeout_s: 3h
+    transition:
+    - action_complete: hop_stage_3
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  hop_stage_3:
+    description: Keep cages 1 and 2 open, release cage 3, and circulate until cage 4 is due
+    action:
+    - run_hop_stage:
+        open_cages: [1, 2, 3]
+        start_minutes_remaining: hop_cage_3_minutes_remaining
+        end_minutes_remaining: hop_cage_4_minutes_remaining
+        session: continue
+    - notify_user:
+        text: Hop cage 3 released; circulating through cages 1, 2, and 3
+    timeout_s: 3h
+    transition:
+    - action_complete: hop_stage_4
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  hop_stage_4:
+    description: Release cage 4 and circulate through all cages for the final boil interval
+    action:
+    - run_hop_stage:
+        open_cages: [1, 2, 3, 4]
+        start_minutes_remaining: hop_cage_4_minutes_remaining
+        end_minutes_remaining: 0
+        session: continue
+    - notify_user:
+        text: Hop cage 4 released; final AVR circulation stage running
+    timeout_s: 3h
+    transition:
+    - action_complete: finish_hop_session
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  finish_hop_session:
+    description: Stop the AVR step session and confirm its safe shutdown before cooling
+    action:
+    - finish_avr_step_session:
+        operation: run_hop_stage
+    - notify_user:
+        text: Hopping complete; stopping circulation and heating
+    timeout_s: 10s
+    transition:
+    - action_complete: next_phase
+    - timeout_exceeded: error_handler
+    - default: loops
+error_handler: hopping-error

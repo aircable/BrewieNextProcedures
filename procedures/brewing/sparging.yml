@@ -1,0 +1,190 @@
+name: sparging
+description: Heat the mash and perform repeated mash-to-boil sparging cycles
+start_state: heat_mash_to_sparge_temperature
+states:
+  heat_mash_to_sparge_temperature:
+    description: Heat and circulate the mash to the recipe sparge temperature
+    action:
+    - set_heater:
+        device: mash_heater
+        target_temp: sparge_target_temperature_C
+    - set_valve:
+        valve: mash_inlet_valve
+        state: open
+    - set_valve:
+        valve: mash_return_valve
+        state: open
+    - set_pump:
+        device: mash_pump
+        state: 'on'
+    - read_sensor: temp_mash_tank
+    - notify_user:
+        readouts:
+        - label: Mash temperature
+          sensor: temp_mash_tank
+          unit: °C
+        - label: Sparge target
+          global: sparge_target_temperature_C
+          unit: °C
+        text: Heating mash to sparge temperature
+    on_exit:
+    - set_heater:
+        device: mash_heater
+        state: 'off'
+    - set_pump:
+        device: mash_pump
+        state: 'off'
+    - set_valve:
+        valve: mash_inlet_valve
+        state: closed
+    - set_valve:
+        valve: mash_return_valve
+        state: closed
+    timeout_s: 30m
+    transition:
+    - temp_mash_tank >= (sparge_target_temperature_C - 1.0): initialize_sparge_cycles
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  initialize_sparge_cycles:
+    description: Start with sparge cycle one
+    action:
+    - set_counter:
+        name: sparge_cycle
+        value: 1
+    transition:
+    - default: drain_mash_to_boil
+
+  drain_mash_to_boil:
+    description: Pump all available wort from the mash tank into the boil tank
+    action:
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - set_valve:
+        valve: mash_inlet_valve
+        state: closed
+    - set_valve:
+        valve: mash_return_valve
+        state: open
+    - set_valve:
+        valve: boil_inlet_valve
+        state: open
+    - set_pump:
+        device: mash_pump
+        state: 'on'
+    - read_sensor: mash_pump_diagnostic
+    - notify_user:
+        readouts:
+        - label: Boil-tank volume
+          sensor: water_volume
+          unit: L
+        text: Pumping wort from mash tank to boil tank
+    on_exit:
+    - set_pump:
+        device: mash_pump
+        state: 'off'
+    - set_valve:
+        valve: mash_return_valve
+        state: closed
+    - set_valve:
+        valve: boil_inlet_valve
+        state: closed
+    timeout_s: 2m
+    transition:
+    - mash_pump_diagnostic == 2 and sparge_cycle >= sparge_cycle_count: finish_sparging
+    - mash_pump_diagnostic == 2: settle_before_return
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  settle_before_return:
+    description: Allow the transferred wort and load-cell reading to settle
+    action: []
+    timeout_s: 4s
+    transition:
+    - 'duration_reached("4s")': return_twenty_liters_to_mash
+
+  return_twenty_liters_to_mash:
+    description: Return at most 20 L through the mash inlet without overflowing the mash tank
+    action:
+    - set_valve:
+        valve: mash_return_valve
+        state: closed
+    - set_valve:
+        valve: boil_inlet_valve
+        state: closed
+    - set_valve:
+        valve: boil_return_valve
+        state: open
+    - set_valve:
+        valve: mash_inlet_valve
+        state: open
+    - set_pump:
+        device: boil_pump
+        state: 'on'
+    - read_sensor: water_volume
+    - read_sensor: boil_pump_diagnostic
+    - notify_user:
+        readouts:
+        - label: Boil-tank volume
+          sensor: water_volume
+          unit: L
+        - label: Stop at
+          global: sparge_boil_reserve_volume_L
+          unit: L
+        text: Returning sparge water through the mash inlet
+    on_exit:
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - set_valve:
+        valve: mash_inlet_valve
+        state: closed
+    - increment_counter:
+        name: sparge_cycle
+    timeout_s: 2m
+    transition:
+    - water_volume <= sparge_boil_reserve_volume_L: settle_before_next_cycle
+    - boil_pump_diagnostic == 2: error_handler
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  settle_before_next_cycle:
+    description: Allow water to soak through the grain bed before draining again
+    action: []
+    timeout_s: 10s
+    transition:
+    - 'duration_reached("10s")': drain_mash_to_boil
+
+  finish_sparging:
+    description: Leave all recovered wort in the boil tank and secure the flow paths
+    action:
+    - set_heater:
+        device: mash_heater
+        state: 'off'
+    - set_pump:
+        device: mash_pump
+        state: 'off'
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    - set_valve:
+        valve: mash_inlet_valve
+        state: closed
+    - set_valve:
+        valve: mash_return_valve
+        state: closed
+    - set_valve:
+        valve: boil_inlet_valve
+        state: closed
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - notify_user:
+        text: Sparging complete; all recovered wort is in the boil tank
+    transition:
+    - default: next_phase
+error_handler: sparging-error

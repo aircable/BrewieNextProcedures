@@ -1,0 +1,30 @@
+schema_version: 1
+machine: brewie_b20
+devices:
+  valves:
+    - water_inlet_valve
+    - mash_inlet_valve
+    - boil_inlet_valve
+    - hop_cage_1_valve
+    - hop_cage_2_valve
+    - hop_cage_3_valve
+    - hop_cage_4_valve
+    - cooling_water_inlet_valve
+    - wort_cooling_valve
+    - outlet_valve
+    - mash_return_valve
+    - boil_return_valve
+  pumps: [mash_pump, boil_pump]
+  heaters: [mash_heater, boil_heater]
+sensors:
+  - temp_mash_tank
+  - temp_boil_tank
+  - weight_boil_tank
+  - weight_mash_tank
+  - water_volume
+  - mash_pump_tacho
+  - boil_pump_tacho
+  - mash_pump_diagnostic
+  - boil_pump_diagnostic
+operations: [run_hop_stage]
+

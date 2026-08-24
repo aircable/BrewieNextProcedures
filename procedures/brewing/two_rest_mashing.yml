@@ -1,0 +1,155 @@
+name: two_rest_mashing
+description: Recirculate the mash through the recipe's two temperature rests
+start_state: check_mash_setup
+states:
+  check_mash_setup:
+    description: Verify the transferred mash water is warm enough to begin
+    action:
+    - read_sensor: temp_mash_tank
+    - notify_user:
+        readouts:
+        - label: Water temperature
+          sensor: temp_mash_tank
+          unit: °C
+        - label: Rest 1 target
+          global: mash_rest_1_temperature_C
+          unit: °C
+        text: Preparing two-rest mash
+    timeout_s: 30s
+    transition:
+    - temp_mash_tank >= (mash_rest_1_temperature_C - 5.0): start_mash_recirculation
+    - timeout_exceeded: error_handler
+    - default: loops
+  start_mash_recirculation:
+    description: Open the mash circulation path and start the mash pump
+    action:
+    - set_valve:
+        valve: mash_inlet_valve
+        state: open
+    - set_valve:
+        valve: mash_return_valve
+        state: open
+    - set_pump:
+        device: mash_pump
+        state: 'on'
+    - read_sensor: mash_pump_tacho
+    timeout_s: 30s
+    transition:
+    - mash_pump_tacho > 100: heat_to_rest_1
+    - timeout_exceeded: error_handler
+    - default: loops
+  heat_to_rest_1:
+    description: Heat the mash to the first recipe rest temperature
+    action:
+    - set_heater:
+        device: mash_heater
+        state: 'on'
+    - enable_pid:
+        device: mash_heater
+        target_temp: mash_rest_1_temperature_C
+    - read_sensor: temp_mash_tank
+    - notify_user:
+        readouts:
+        - label: Mash temperature
+          sensor: temp_mash_tank
+          unit: °C
+        - label: Rest 1 target
+          global: mash_rest_1_temperature_C
+          unit: °C
+        text: Heating to mash rest 1
+    timeout_s: 30m
+    transition:
+    - temp_mash_tank >= (mash_rest_1_temperature_C - 1.0): rest_1_hold
+    - timeout_exceeded: error_handler
+    - default: loops
+  rest_1_hold:
+    description: Hold the first recipe mash rest
+    action:
+    - read_sensor: temp_mash_tank
+    - set_pump:
+        device: mash_pump
+        state: 'on'
+    - notify_user:
+        readouts:
+        - label: Mash temperature
+          sensor: temp_mash_tank
+          unit: °C
+        - label: Rest 1 time
+          global: mash_rest_1_duration_min
+          unit: min
+        text: Mash rest 1 in progress
+    on_exit:
+    - disable_pid:
+        device: mash_heater
+    - set_heater:
+        device: mash_heater
+        state: 'off'
+    transition:
+    - duration_reached(mash_rest_1_duration_min * 60): heat_to_rest_2
+    - default: loops
+  heat_to_rest_2:
+    description: Heat the mash to the second recipe rest temperature
+    action:
+    - set_heater:
+        device: mash_heater
+        state: 'on'
+    - enable_pid:
+        device: mash_heater
+        target_temp: mash_rest_2_temperature_C
+    - read_sensor: temp_mash_tank
+    - notify_user:
+        readouts:
+        - label: Mash temperature
+          sensor: temp_mash_tank
+          unit: °C
+        - label: Rest 2 target
+          global: mash_rest_2_temperature_C
+          unit: °C
+        text: Heating to mash rest 2
+    timeout_s: 30m
+    transition:
+    - temp_mash_tank >= (mash_rest_2_temperature_C - 1.0): rest_2_hold
+    - timeout_exceeded: error_handler
+    - default: loops
+  rest_2_hold:
+    description: Hold the second recipe mash rest
+    action:
+    - read_sensor: temp_mash_tank
+    - set_pump:
+        device: mash_pump
+        state: 'on'
+    - notify_user:
+        readouts:
+        - label: Mash temperature
+          sensor: temp_mash_tank
+          unit: °C
+        - label: Rest 2 time
+          global: mash_rest_2_duration_min
+          unit: min
+        text: Mash rest 2 in progress
+    on_exit:
+    - set_pump:
+        device: mash_pump
+        state: 'off'
+    - set_heater:
+        device: mash_heater
+        state: 'off'
+    - disable_pid:
+        device: mash_heater
+    - set_valve:
+        valve: mash_inlet_valve
+        state: closed
+    - set_valve:
+        valve: mash_return_valve
+        state: closed
+    transition:
+    - duration_reached(mash_rest_2_duration_min * 60): finish_mashing
+    - default: loops
+  finish_mashing:
+    description: Mashing complete
+    action:
+    - notify_user:
+        text: Both mash rests are complete
+    transition:
+    - default: next_phase
+error_handler: two-rest-mashing-error

@@ -1,0 +1,92 @@
+name: unclogging
+start_state: check_clog_status
+parameters:
+  max_reverse_cycles: 5
+  reverse_pump_duration: 10
+  forward_pump_duration: 5
+  unclog_threshold_current: 2.0
+description: Clear pump clogs using reverse-forward pump cycles
+
+states:
+  check_clog_status:
+    description: Verify pump is currently clogged or blocked
+    action:
+      - read: pump-current
+      - read: pump-tacho
+    timeout_s: 30s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_pump:
+          device: mash-pump
+          state: off
+    transition:
+      - "pump_current > (unclog_threshold_current) and pump_tacho <= 100": reverse_unclog
+      - "iteration_count >= max_reverse_cycles": error-clog-not-cleared
+      - default: "loops"
+
+  reverse_unclog:
+    description: Run pump in reverse to dislodge clog
+    action:
+      - set_pump:
+          device: boil-pump
+          state: reverse
+          speed: 60
+    timeout_s: 10s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+    transition:
+      - "elapsed_time >= (reverse_pump_duration)": forward_flush
+      - "pump_current < (unclog_threshold_current)": finish_unclogging
+      - default: finish_unclogging
+
+  forward_flush:
+    description: Run pump forward to flush dislodged material
+    action:
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 80
+    timeout_s: 5s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+    transition:
+      - "elapsed_time >= (forward_pump_duration)": check_clog_status
+
+  finish_unclogging:
+    description: Clog cleared, restore normal operation
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+    timeout_s: 10s
+    transition:
+      - "pump_current < (unclog_threshold_current)": finish
+      - "iteration_count >= max_reverse_cycles": error-clog-not-cleared
+      - default: check_clog_status
+
+  finish:
+    description: Unclogging procedure complete
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_pump:
+          device: mash-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+    timeout_s: 1s
+    transition:
+      - "step_complete": next_phase
+
+error_handler: unclogging-error

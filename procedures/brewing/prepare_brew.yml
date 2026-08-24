@@ -1,0 +1,82 @@
+name: prepare_brew
+description: Review the selected recipe, load ingredients, and confirm the machine
+  is ready.
+start_state: review_recipe
+states:
+  review_recipe:
+    description: Review the recipe and water requirements before loading ingredients.
+    action:
+    - notify_user:
+        text: Review the selected recipe.
+        readouts:
+        - label: Recipe
+          global: recipe_name
+        - label: Batch volume
+          global: batch_volume_L
+          unit: L
+        - label: Mash water
+          global: mash_water_volume_L
+          unit: L
+        - label: Sparge water
+          global: sparge_water_volume_L
+          unit: L
+        footer_text: Load fermentables into machine
+    - wait_for_user_input:
+        key: recipe_reviewed
+        expected_values:
+        - continue
+    timeout_s: 30m
+    transition:
+    - recipe_reviewed == "continue": confirm_machine_ready
+  load_fermentables:
+    description: Load the recipe's grain bill into the indicated grain bags.
+    action:
+    - notify_user:
+        text: Load the fermentables into the machine.
+        item_source:
+          global: fermentables
+    - wait_for_user_input:
+        key: fermentables_loaded
+        expected_values:
+        - loaded
+    timeout_s: 60m
+    transition:
+    - fermentables_loaded == "loaded": load_hop_cages
+  load_hop_cages:
+    description: Load all four hop cages; an empty cage remains installed and is still
+      released.
+    action:
+    - notify_user:
+        text: Load the hop cages. Times are minutes remaining in the boil.
+        item_source:
+          global: hop_additions
+    - wait_for_user_input:
+        key: hop_cages_loaded
+        expected_values:
+        - loaded
+    timeout_s: 60m
+    transition:
+    - hop_cages_loaded == "loaded": confirm_machine_ready
+  confirm_machine_ready:
+    description: Confirm the lids, filters, grain bags, and hop cages are correctly
+      installed.
+    action:
+    - notify_user:
+        text: Confirm the Brewie is loaded and ready to start.
+        checklist:
+        - Grain bags installed
+        - Hop cages installed
+        - Filters installed
+        - Lids closed
+    - wait_for_user_input:
+        key: machine_ready
+        expected_values:
+        - start
+    on_exit:
+    - log_event: Brew preparation confirmed
+    timeout_s: 30m
+    transition:
+    - machine_ready == "start": next_phase
+error_handler: prepare-brew-error
+phase: prepare_brew
+error: prepare-brew-error

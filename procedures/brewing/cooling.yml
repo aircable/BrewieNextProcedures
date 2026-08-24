@@ -1,0 +1,51 @@
+name: cooling
+description: Cool the wort immediately after hopping to the recipe transfer temperature
+start_state: cool_wort
+states:
+  cool_wort:
+    description: Open both heat-exchanger paths and monitor wort temperature
+    action:
+    - set_heater:
+        device: boil_heater
+        state: 'off'
+    - set_valve:
+        valve: wort_cooling_valve
+        state: open
+    - set_valve:
+        valve: cooling_water_inlet_valve
+        state: open
+    - read_sensor: temp_boil_tank
+    - notify_user:
+        text: Cooling wort
+        readouts:
+        - label: Wort temperature
+          sensor: temp_boil_tank
+          unit: °C
+        - label: Cooling target
+          global: cooling_target_temperature_C
+          unit: °C
+    - set_valve:
+        valve: boil_return_valve
+        state: open
+    - set_pump:
+        device: boil_pump
+        state: 'on'
+    on_exit:
+    - set_valve:
+        valve: cooling_water_inlet_valve
+        state: closed
+    - set_valve:
+        valve: wort_cooling_valve
+        state: closed
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    timeout_s: 60m
+    transition:
+    - temp_boil_tank <= (cooling_target_temperature_C + 1.0): next_phase
+    - timeout_exceeded: error_handler
+    - default: loops
+error_handler: cooling-error

@@ -1,0 +1,87 @@
+name: heat_mash_water
+description: Heat mash water in boil tank to mashing temperature
+states:
+  check_water_level:
+    description: Check if water is in boil tank for heating
+    action:
+    - notify_user:
+        text: Mash water still low
+        readouts:
+        - label: Current volume
+          sensor: weight_boil_tank
+          unit: L
+        - global: mash_water_volume_L
+          label: Target volume
+          unit: L
+        options:
+        - continue
+    - wait_for_user_input:
+        expected_values:
+        - continue
+        key: continue_to_heat
+    transition:
+    - continue_to_heat == "continue": heat_mash_water
+    - weight-boil-tank >= (mash_water_volume_L - 0.5): heat_mash_water
+  heat_mash_water:
+    description: Heat water to mashing temperature
+    action:
+    - set_heater:
+        device: boil_heater
+        target_temp: mash_in_temperature_C
+    - notify_user:
+        readouts:
+        - label: Current volume
+          sensor: weight_boil_tank
+          unit: L
+        - label: Water temperature
+          sensor: temp_boil_tank
+          unit: °C
+        - label: Target water temperature
+          global: mash_in_temperature_C
+          unit: °C
+        text: Water heating in progress.
+    - set_valve:
+        valve: boil_return_valve
+        state: open
+    - set_valve:
+        valve: boil_inlet_valve
+        state: open
+    - set_pump:
+        device: boil_pump
+        state: 'on'
+    on_exit:
+    - set_heater:
+        device: boil_heater
+        state: 'off'
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - set_valve:
+        valve: boil_inlet_valve
+        state: closed
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    timeout_s: 25m
+    transition:
+    - temp_boil_tank >= (mash_in_temperature_C - 1.0): next_phase
+    - timeout_exceeded: error_heat_timeout
+    - default: loops
+  error_heat_timeout:
+    description: when it takes too long for the heater to get to the target temp
+    action:
+    - set_heater:
+        device: boil_heater
+        state: 'off'
+    - notify_user:
+        text: Heating timed out. Check the heater and temperature sensor.
+    - wait_for_user_input:
+        key: heat_timeout_response
+        expected_values:
+        - retry
+        - abort
+    transition:
+    - heat_timeout_response == "retry": check_water_level
+    - heat_timeout_response == "abort": error_handler
+error_handler: heat-mash-water-error
+start_state: check_water_level

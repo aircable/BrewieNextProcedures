@@ -1,0 +1,196 @@
+name: cleaning_short
+start_state: check_cleaning_setup
+parameters:
+  cleaning_solution_volume: 5.0
+  rinse_cycles: 2
+  rinse_time: 120
+description: Quick cleaning cycle for basic sanitation between brews
+
+states:
+  check_cleaning_setup:
+    description: Verify tanks are empty and ready for cleaning
+    action:
+      - read: weight-boil-tank
+      - read: weight-mash-tank
+    timeout_s: 30s
+    transition:
+      - "weight-boil-tank <= 1.0 and weight-mash-tank <= 1.0": fill_cleaning_solution
+      - default: error-cleaning-setup
+
+  fill_cleaning_solution:
+    description: Fill tanks with cleaning solution
+    action:
+      - set_valve:
+          valve: cooling_valve
+          state: open
+      - set_valve:
+          valve: cool_out_valve
+          state: open
+    timeout_s: 60s
+    on_exit:
+      - set_valve:
+          valve: cooling_valve
+          state: closed
+      - set_valve:
+          valve: cool_out_valve
+          state: closed
+    transition:
+      - "weight-boil-tank >= (cleaning_solution_volume * 0.8)": circulate_cleaning
+      - default: "loops"
+
+  circulate_cleaning:
+    description: Circulate cleaning solution through both tanks
+    action:
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 60
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_valve:
+          valve: boil_return_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+    transition:
+      - "elapsed_time >= (rinse_time)": drain_cleaning_solution
+      - "pump_tacho <= 50": error-pump-failure
+      - default: "loops"
+
+  drain_cleaning_solution:
+    description: Drain cleaning solution
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: outlet_valve
+          state: open
+    timeout_s: 60s
+    on_exit:
+      - set_valve:
+          valve: outlet_valve
+          state: closed
+    transition:
+      - "weight-boil-tank <= 1.0": rinse_cycle
+      - default: "loops"
+
+  rinse_cycle:
+    description: Rinse tanks with fresh water
+    action:
+      - set_valve:
+          valve: cooling_valve
+          state: open
+      - set_valve:
+          valve: cool_out_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_valve:
+          valve: cooling_valve
+          state: closed
+      - set_valve:
+          valve: cool_out_valve
+          state: closed
+    transition:
+      - "weight-boil-tank >= (cleaning_solution_volume * 0.8)": circulate_rinse
+      - default: "loops"
+
+  circulate_rinse:
+    description: Circulate rinse water through tanks
+    action:
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 60
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_valve:
+          valve: boil_return_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+    transition:
+      - "iteration_count >= rinse_cycles": drain_rinse
+      - "pump_tacho <= 50": error-pump-failure
+      - default: "loops"
+
+  drain_rinse:
+    description: Drain rinse water
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: outlet_valve
+          state: open
+    timeout_s: 60s
+    on_exit:
+      - set_valve:
+          valve: outlet_valve
+          state: closed
+    transition:
+      - "weight-boil-tank <= 1.0": finish_cleaning
+      - default: "loops"
+
+  finish_cleaning:
+    description: Cleaning cycle complete
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_pump:
+          device: mash-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: cooling_valve
+          state: closed
+      - set_valve:
+          valve: cool_out_valve
+          state: closed
+      - set_valve:
+          valve: outlet_valve
+          state: closed
+    timeout_s: 10s
+    transition:
+      - "step_complete": next_phase
+
+error_handler: cleaning-short-error

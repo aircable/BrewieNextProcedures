@@ -1,0 +1,307 @@
+name: cleaning_full
+start_state: check_cleaning_setup
+parameters:
+  cleaning_solution_volume: 10.0
+  sanitizer_volume: 5.0
+  cleaning_time: 300
+  sanitizing_time: 120
+  rinse_cycles: 3
+  rinse_time: 120
+description: Full cleaning cycle with caustic cleaning, sanitization, and multiple rinses
+
+states:
+  check_cleaning_setup:
+    description: Verify tanks are empty and ready for cleaning
+    action:
+      - read: weight-boil-tank
+      - read: weight-mash-tank
+    timeout_s: 30s
+    transition:
+      - "weight-boil-tank <= 1.0 and weight-mash-tank <= 1.0": fill_cleaning_solution
+      - default: error-cleaning-setup
+
+  fill_cleaning_solution:
+    description: Fill tanks with caustic cleaning solution
+    action:
+      - set_valve:
+          valve: cooling_valve
+          state: open
+      - set_valve:
+          valve: cool_out_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_valve:
+          valve: cooling_valve
+          state: closed
+      - set_valve:
+          valve: cool_out_valve
+          state: closed
+    transition:
+      - "weight-boil-tank >= (cleaning_solution_volume - 1.0)": circulate_caustic
+      - default: "loops"
+
+  circulate_caustic:
+    description: Circulate caustic cleaning solution through both tanks
+    action:
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 80
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_valve:
+          valve: boil_return_valve
+          state: open
+      - set_pump:
+          device: mash-pump
+          state: on
+          speed: 50
+      - set_valve:
+          valve: mash_inlet_valve
+          state: open
+      - set_valve:
+          valve: mash_return_valve
+          state: open
+    timeout_s: 300s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_pump:
+          device: mash-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: mash_inlet_valve
+          state: closed
+      - set_valve:
+          valve: mash_return_valve
+          state: closed
+    transition:
+      - "elapsed_time >= (cleaning_time)": drain_caustic
+      - "pump_tacho <= 50": error-pump-failure
+      - default: "loops"
+
+  drain_caustic:
+    description: Drain caustic solution completely
+    action:
+      - set_valve:
+          valve: outlet_valve
+          state: open
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_pump:
+          device: mash-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: mash_inlet_valve
+          state: closed
+      - set_valve:
+          valve: mash_return_valve
+          state: closed
+    timeout_s: 120s
+    on_exit:
+      - set_valve:
+          valve: outlet_valve
+          state: closed
+    transition:
+      - "weight-boil-tank <= 1.0 and weight-mash-tank <= 1.0": fill_sanitizer
+      - default: "loops"
+
+  fill_sanitizer:
+    description: Fill tanks with sanitizing solution
+    action:
+      - set_valve:
+          valve: cooling_valve
+          state: open
+      - set_valve:
+          valve: cool_out_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_valve:
+          valve: cooling_valve
+          state: closed
+      - set_valve:
+          valve: cool_out_valve
+          state: closed
+    transition:
+      - "weight-boil-tank >= (sanitizer_volume - 0.5)": circulate_sanitizer
+      - default: "loops"
+
+  circulate_sanitizer:
+    description: Circulate sanitizing solution through both tanks
+    action:
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 70
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_valve:
+          valve: boil_return_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+    transition:
+      - "elapsed_time >= (sanitizing_time)": drain_sanitizer
+      - "pump_tacho <= 50": error-pump-failure
+      - default: "loops"
+
+  drain_sanitizer:
+    description: Drain sanitizing solution
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: outlet_valve
+          state: open
+    timeout_s: 60s
+    on_exit:
+      - set_valve:
+          valve: outlet_valve
+          state: closed
+    transition:
+      - "weight-boil-tank <= 1.0": rinse_cycle
+      - default: "loops"
+
+  rinse_cycle:
+    description: Rinse tanks with fresh water (repeats rinse_cycles times)
+    action:
+      - set_valve:
+          valve: cooling_valve
+          state: open
+      - set_valve:
+          valve: cool_out_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_valve:
+          valve: cooling_valve
+          state: closed
+      - set_valve:
+          valve: cool_out_valve
+          state: closed
+    transition:
+      - "weight-boil-tank >= (sanitizer_volume * 0.8)": circulate_rinse
+      - default: "loops"
+
+  circulate_rinse:
+    description: Circulate rinse water through tanks
+    action:
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 60
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_valve:
+          valve: boil_return_valve
+          state: open
+    timeout_s: 120s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+    transition:
+      - "iteration_count >= rinse_cycles": drain_final_rinse
+      - "pump_tacho <= 50": error-pump-failure
+      - default: "loops"
+
+  drain_final_rinse:
+    description: Drain final rinse water
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: outlet_valve
+          state: open
+    timeout_s: 60s
+    on_exit:
+      - set_valve:
+          valve: outlet_valve
+          state: closed
+    transition:
+      - "weight-boil-tank <= 1.0 and weight-mash-tank <= 1.0": finish_cleaning
+      - default: "loops"
+
+  finish_cleaning:
+    description: Full cleaning cycle complete
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_pump:
+          device: mash-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: cooling_valve
+          state: closed
+      - set_valve:
+          valve: cool_out_valve
+          state: closed
+      - set_valve:
+          valve: outlet_valve
+          state: closed
+      - set_valve:
+          valve: mash_inlet_valve
+          state: closed
+      - set_valve:
+          valve: mash_return_valve
+          state: closed
+    timeout_s: 10s
+    transition:
+      - "step_complete": next_phase
+
+error_handler: cleaning-full-error

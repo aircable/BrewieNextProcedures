@@ -1,0 +1,74 @@
+name: boiling
+description: Heat wort to boiling and complete the initially unhopped part of the recipe boil
+start_state: heat_wort_to_boil
+states:
+  heat_wort_to_boil:
+    description: Circulate and heat the wort to the recipe boil temperature
+    action:
+    - set_valve:
+        valve: boil_return_valve
+        state: open
+    - set_valve:
+        valve: boil_inlet_valve
+        state: open
+    - set_pump:
+        device: boil_pump
+        state: 'on'
+    - set_heater:
+        device: boil_heater
+        target_temp: boil_target_temperature_C
+    - read_sensor: temp_boil_tank
+    - notify_user:
+        text: Heating wort to boiling temperature
+        readouts:
+        - label: Wort temperature
+          sensor: temp_boil_tank
+          unit: °C
+        - label: Boil target
+          global: boil_target_temperature_C
+          unit: °C
+    on_exit:
+    - set_heater:
+        device: boil_heater
+        state: 'off'
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - set_valve:
+        valve: boil_inlet_valve
+        state: closed
+    timeout_s: 45m
+    transition:
+    - temp_boil_tank >= (boil_target_temperature_C - 1.0): initial_unhopped_boil
+    - timeout_exceeded: error_handler
+    - default: loops
+
+  initial_unhopped_boil:
+    description: Maintain the boil until the first hop-cage release is due
+    action:
+    - set_heater:
+        device: boil_heater
+        target_temp: boil_target_temperature_C
+    - read_sensor: temp_boil_tank
+    - notify_user:
+        text: Initial boil without hops
+        readouts:
+        - label: Wort temperature
+          sensor: temp_boil_tank
+          unit: °C
+        - label: Initial duration
+          global: initial_unhopped_boil_duration_min
+          unit: min
+    on_exit:
+    - set_heater:
+        device: boil_heater
+        state: 'off'
+    timeout_s: 3h
+    transition:
+    - timeout_after >= (initial_unhopped_boil_duration_min * 60): next_phase
+    - timeout_exceeded: error_handler
+    - default: loops
+error_handler: boiling-error

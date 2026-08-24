@@ -1,0 +1,99 @@
+name: transfer_to_fermenter
+description: Transfer cooled and settled wort from the boil tank to the fermenter
+start_state: confirm_fermenter_hoses
+states:
+  confirm_fermenter_hoses:
+    description: Require the user to confirm that every fermenter hose is connected
+    action:
+    - notify_user:
+        text: Connect all transfer hoses securely to the fermenter before continuing
+        checklist:
+        - Fermenter is sanitized and ready
+        - Transfer hose is connected to the Brewie outlet
+        - Transfer hose is secured at the fermenter
+        options:
+        - connected
+    - wait_for_user_input:
+        key: fermenter_hoses
+        expected_values:
+        - connected
+    timeout_s: 60m
+    transition:
+    - fermenter_hoses == "connected": empty_hop_cages
+    - timeout_exceeded: error_handler
+    - default: loops
+  empty_hop_cages:
+    description: Describe what this state does.
+    action:
+    - set_valve:
+        valve: outlet_valve
+        state: open
+    - set_valve:
+        valve: hop_cage_1_valve
+        state: open
+    - set_valve:
+        valve: hop_cage_2_valve
+        state: open
+    - set_valve:
+        valve: hop_cage_3_valve
+        state: open
+    - set_valve:
+        valve: hop_cage_4_valve
+        state: open
+    on_exit:
+    - set_valve:
+        valve: hop_cage_1_valve
+        state: closed
+    - set_valve:
+        valve: hop_cage_2_valve
+        state: closed
+    - set_valve:
+        valve: hop_cage_3_valve
+        state: closed
+    - set_valve:
+        valve: hop_cage_4_valve
+        state: closed
+    transition:
+    - duration_reached(2 * 60): transfer_wort
+  transfer_wort:
+    description: Pump wort from the boil tank through the outlet until the AVR reports
+      no load
+    action:
+    - set_valve:
+        valve: boil_return_valve
+        state: open
+    - set_pump:
+        device: boil_pump
+        state: 'on'
+    - read_sensor: boil_pump_diagnostic
+    - read_sensor: water_volume
+    - notify_user:
+        text: Transferring wort to fermenter
+        readouts:
+        - label: Boil-tank volume
+          sensor: water_volume
+          unit: L
+    on_exit:
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - set_valve:
+        valve: outlet_valve
+        state: closed
+    timeout_s: 20m
+    transition:
+    - boil_pump_diagnostic == 2: finish_transfer
+    - timeout_exceeded: error_handler
+    - default: loops
+  finish_transfer:
+    description: Confirm that wort transfer is complete and all output devices are
+      safe
+    action:
+    - notify_user:
+        text: Wort transfer complete
+    transition:
+    - default: next_phase
+error_handler: transfer-to-fermenter-error

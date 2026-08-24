@@ -1,0 +1,33 @@
+schema_version: 1
+namespace: recipe
+values:
+  recipe_id: string
+  recipe_name: string
+  batch_volume_L: number
+  mash_water_volume_L: number
+  sparge_water_volume_L: number
+  fermentables: list
+  mash_in_temperature_C: number
+  mash_steps: list
+  mash_rest_1_temperature_C: number
+  mash_rest_1_duration_min: number
+  mash_rest_2_temperature_C: number
+  mash_rest_2_duration_min: number
+  mash_total_duration_min: number
+  sparge_target_temperature_C: number
+  sparge_cycle_count: integer
+  mash_tank_sparge_limit_L: number
+  sparge_boil_reserve_volume_L: number
+  boil_duration_min: number
+  boil_target_temperature_C: number
+  hop_additions: list
+  hopping_duration_min: number
+  initial_unhopped_boil_duration_min: number
+  hop_cage_1_minutes_remaining: number
+  hop_cage_2_minutes_remaining: number
+  hop_cage_3_minutes_remaining: number
+  hop_cage_4_minutes_remaining: number
+  cooling_target_temperature_C: number
+  sedimentation_duration_min: number
+  yeasts: list
+

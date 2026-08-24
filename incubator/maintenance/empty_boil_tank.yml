@@ -1,0 +1,92 @@
+name: empty_boil_tank
+start_state: prime_pump
+parameters:
+  max_burp_cycles: 3
+  pump_flow_rate: 0.5
+  empty_threshold: 1.0
+description: Empty water from boil tank using burp pump cycles
+
+states:
+  prime_pump:
+    description: Ensure pump has liquid before starting to prevent dry operation
+    action:
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_valve:
+          valve: boil_return_valve
+          state: open
+      - open_valve_for_seconds:
+          valve: boil_inlet_valve
+          duration: 2s
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 30
+    timeout_s: 15s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+    transition:
+      - "pump_tacho > 100": transfer_cycle
+      - "iteration_count >= 10": error-no-flow
+      - default: "loops"
+
+  transfer_cycle:
+    description: Run pump to transfer water, check for flow completion
+    action:
+      - set_pump:
+          device: boil-pump
+          state: on
+          speed: 80
+      - open_valve_for_seconds:
+          valve: boil_inlet_valve
+          duration: 1s
+      - read: pump-current
+      - read: weight-boil-tank
+    timeout_s: 90s
+    on_exit:
+      - set_pump:
+          device: boil-pump
+          state: off
+    transition:
+      - "pump_current < 0.5 and weight-boil-tank < 1.0": finish-empty
+      - "pump_current < 0.5 and iteration_count < max_burp_cycles": burp_cycle
+      - "iteration_count >= max_burp_cycles": finish-empty
+      - default: "loops"
+
+  burp_cycle:
+    description: Pause to let settled water accumulate near outlet
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+    timeout_s: 35s
+    on_exit:
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+    transition:
+      - "step_complete": transfer_cycle
+
+  finish-empty:
+    description: Water transfer to mash tank complete
+    action:
+      - set_pump:
+          device: boil-pump
+          state: off
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+    timeout_s: 10s
+    transition:
+      - "step_complete": next_phase
+
+error_handler: empty-boil-tank-error

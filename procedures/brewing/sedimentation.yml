@@ -1,0 +1,18 @@
+name: sedimentation
+description: Leave cooled wort undisturbed so suspended material settles before transfer
+start_state: settle_cooled_wort
+states:
+  settle_cooled_wort:
+    description: Keep all pumps and process paths stopped for the recipe sedimentation
+      time
+    action:
+    - notify_user:
+        text: Wort sedimentation in progress; do not move the machine
+        readouts:
+        - label: Sedimentation time
+          global: sedimentation_duration_min
+          unit: min
+    transition:
+    - duration_reached(sedimentation_duration_min * 60): next_phase
+    - default: loops
+error_handler: sedimentation-error

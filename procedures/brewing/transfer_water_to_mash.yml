@@ -1,0 +1,83 @@
+name: transfer_water_to_mash
+description: Transfer heated water from boil tank to mash tank
+start_state: prepare_transfer
+states:
+  prepare_transfer:
+    description: Ensure pump has liquid before starting transfer
+    action:
+    - set_valve:
+        valve: mash_return_valve
+        state: open
+    - set_valve:
+        valve: boil_return_valve
+        state: open
+    - set_pump:
+        device: boil_pump
+        state: 'on'
+    - read_sensor: boil_pump_diagnostic
+    timeout_s: 15s
+    transition:
+    - boil_pump_diagnostic == 1: pump_until_current_drop
+    - timeout_exceeded: error_handler
+    - default: loops
+  pump_until_current_drop:
+    description: Execute water transfer using burp method
+    action:
+    - set_valve:
+        valve: boil_return_valve
+        state: open
+    - set_valve:
+        valve: mash_return_valve
+        state: open
+    - set_pump:
+        device: boil_pump
+        state: 'on'
+    - read_sensor: boil_pump_diagnostic
+    - notify_user:
+        readouts:
+        - label: Current volume
+          sensor: weight_boil_tank
+          unit: L
+        text: Moving water to mash tank
+    on_exit:
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    timeout_s: 120s
+    transition:
+    - weight_boil_tank <= 1.5: check_remaining
+    - boil_pump_diagnostic == 2: settle_water
+    - timeout_exceeded: error_handler
+    - default: loops
+  settle_water:
+    description: Pause to allow settled water to reach transfer point, 10 seconds
+      wait
+    action: []
+    timeout_s: 10s
+    transition:
+    - duration_reached("10s"): pump_until_current_drop
+  check_remaining:
+    description: Still water in the tank, weight it
+    action:
+    - read_sensor: weight_boil_tank
+    transition:
+    - weight_boil_tank <= 1.5: finish_transfer
+    - default: pump_until_current_drop
+  finish_transfer:
+    description: Stop the pump and close the bottom transfer path
+    action:
+    - set_pump:
+        device: boil_pump
+        state: 'off'
+    - set_valve:
+        valve: boil_return_valve
+        state: closed
+    - set_valve:
+        valve: mash_return_valve
+        state: closed
+    transition:
+    - default: next_phase
+error_handler: transfer-water-error

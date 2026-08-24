@@ -1,0 +1,86 @@
+name: fill_sparge_water
+description: Fill sparge water into the boil tank with manual or automatic options
+start_state: prompt_water_fill_method
+states:
+  prompt_water_fill_method:
+    description: Prompt user for sparge-water fill method
+    action:
+    - notify_user:
+        options:
+        - manual
+        - automatic
+        text: How will you fill the sparge water?
+    - wait_for_user_input:
+        expected_values:
+        - manual
+        - automatic
+        key: water_fill_method
+    transition:
+    - water_fill_method == "automatic": fill_automatic
+    - water_fill_method == "manual": fill_manually
+  fill_manually:
+    description: Prompt user to add sparge water manually
+    action:
+    - notify_user:
+        readouts:
+        - label: Current volume
+          sensor: weight_boil_tank
+          unit: L
+        - label: Target volume
+          global: sparge_water_volume_L
+          unit: L
+        - label: Water temperature
+          sensor: temp_boil_tank
+          unit: °C
+        text: Fill the boil tank with sparge water manually.
+    - wait_for_user_input:
+        expected_values:
+        - done
+        key: manual_fill_done
+    timeout_s: 1800s
+    transition:
+    - manual_fill_done == "done": wait_for_user_to_continue
+  fill_automatic:
+    description: Automatically fill sparge water into the boil tank
+    action:
+    - set_valve:
+        state: open
+        valve: water_inlet_valve
+    - notify_user:
+        readouts:
+        - label: Current volume
+          sensor: weight_boil_tank
+          unit: L
+        - label: Target volume
+          global: sparge_water_volume_L
+          unit: L
+        - label: Water temperature
+          sensor: temp_boil_tank
+          unit: °C
+        text: Automatic sparge-water inlet in progress.
+    on_exit:
+    - set_valve:
+        state: closed
+        valve: water_inlet_valve
+    timeout_s: 300s
+    transition:
+    - weight_boil_tank >= (sparge_water_volume_L - 0.5): wait_for_user_to_continue
+    - timeout_exceeded: error_handler
+    - default: loops
+  wait_for_user_to_continue:
+    description: Wait for user confirmation before heating sparge water
+    action:
+    - notify_user:
+        text: Sparge water is ready. Press continue to start heating.
+    - wait_for_user_input:
+        expected_values:
+        - continue
+        key: continue_to_heating
+    on_exit:
+    - set_valve:
+        state: closed
+        valve: water_inlet_valve
+    timeout_s: 1800s
+    transition:
+    - continue_to_heating == "continue": next_phase
+error_handler: fill-sparge-water-error
