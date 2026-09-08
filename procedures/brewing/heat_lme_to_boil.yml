@@ -1,0 +1,56 @@
+name: heat_lme_to_boil
+description: Heat and circulate the initial boil-tank LME charge until it reaches the recipe boil temperature.
+start_state: heat_and_circulate
+states:
+  heat_and_circulate:
+    description: Heat the initial LME wort to boiling while monitoring both tanks.
+    action:
+      - set_valve:
+          valve: boil_return_valve
+          state: open
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_pump:
+          device: boil_pump
+          state: 'on'
+      - set_heater:
+          device: boil_heater
+          target_temp: boil_target_temperature_C
+      - read_sensor: temp_boil_tank
+      - read_sensor: temp_mash_tank
+      - read_sensor: weight_boil_tank
+      - notify_user:
+          text: Heating the initial LME wort to boiling.
+          readouts:
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+            - label: Boil target
+              global: boil_target_temperature_C
+              unit: °C
+            - label: Boil-tank reading
+              sensor: weight_boil_tank
+              unit: L
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+    on_exit:
+      - set_heater:
+          device: boil_heater
+          state: 'off'
+      - set_pump:
+          device: boil_pump
+          state: 'off'
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+    timeout_s: 45m
+    transition:
+      - temp_boil_tank >= (boil_target_temperature_C - 1.0): next_phase
+      - timeout_exceeded: error_handler
+      - default: loops
+error_handler: heat-lme-to-boil-error

@@ -54,8 +54,15 @@ def build(output):
     (stage / "programs").mkdir(parents=True)
     (stage / "schemas").mkdir()
     (stage / "contracts").mkdir()
+    (stage / "catalog").mkdir()
 
-    sources = [*(ROOT / "workflows").glob("*.yml"), *(ROOT / "procedures").rglob("*.yml")]
+    sources = [
+        *(ROOT / "workflows").glob("*.yml"),
+        *(
+            path for path in (ROOT / "procedures").rglob("*.yml")
+            if ".backups" not in path.parts
+        ),
+    ]
     seen = set()
     for source in sorted(sources):
         if source.name in seen:
@@ -66,6 +73,8 @@ def build(output):
         shutil.copy2(source, stage / "schemas" / source.name)
     for source in sorted((ROOT / "contracts").glob("*.yml")):
         shutil.copy2(source, stage / "contracts" / source.name)
+    for source in sorted((ROOT / "catalog").glob("*.yml")):
+        shutil.copy2(source, stage / "catalog" / source.name)
 
     files = {
         str(path.relative_to(stage)): digest(path)

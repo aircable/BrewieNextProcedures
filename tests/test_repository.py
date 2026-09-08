@@ -30,15 +30,19 @@ class RepositoryTests(unittest.TestCase):
             with tarfile.open(archive_a, "r:gz") as archive:
                 names = archive.getnames()
                 self.assertTrue(any(name.endswith("/programs/beer_brewing.yml") for name in names))
+                self.assertTrue(any(name.endswith("/programs/lme_brewing.yml") for name in names))
+                self.assertTrue(any(name.endswith("/programs/cleaning_short.yml") for name in names))
                 self.assertTrue(any(name.endswith("/programs/prepare_brew.yml") for name in names))
+                self.assertTrue(any(name.endswith("/catalog/programs.yml") for name in names))
                 self.assertFalse(any("procedures/brewing" in name for name in names))
+                self.assertFalse(any(".backups" in name for name in names))
                 manifest_member = next(name for name in names if name.endswith("/bundle-manifest.json"))
                 manifest = json.load(archive.extractfile(manifest_member))
                 self.assertEqual(manifest["entrypoints"]["brew"], "programs/beer_brewing.yml")
 
     def test_release_tag_matches_version(self):
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.1.0"],
+            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.2.0"],
             check=False, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)

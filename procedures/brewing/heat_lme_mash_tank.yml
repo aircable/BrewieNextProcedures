@@ -1,0 +1,52 @@
+name: heat_lme_mash_tank
+description: Heat and circulate the concentrated mash-tank LME charge while hopping runs.
+start_state: heat_and_hold
+states:
+  heat_and_hold:
+    description: Regulate the mash tank at the LME target temperature until hopping completes.
+    action:
+      - set_heater:
+          device: mash_heater
+          target_temp: lme_mash_target_temperature_C
+      - set_valve:
+          valve: mash_inlet_valve
+          state: open
+      - set_valve:
+          valve: mash_return_valve
+          state: open
+      - set_pump:
+          device: mash_pump
+          state: 'on'
+      - read_sensor: temp_mash_tank
+      - read_sensor: weight_mash_tank
+      - notify_user:
+          text: Heating and circulating the concentrated mash-tank LME charge.
+          readouts:
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+            - label: Mash target
+              global: lme_mash_target_temperature_C
+              unit: °C
+            - label: Mash-tank reading
+              sensor: weight_mash_tank
+              unit: L
+    on_exit:
+      - set_heater:
+          device: mash_heater
+          state: 'off'
+      - set_pump:
+          device: mash_pump
+          state: 'off'
+      - set_valve:
+          valve: mash_inlet_valve
+          state: closed
+      - set_valve:
+          valve: mash_return_valve
+          state: closed
+    timeout_s: 3h
+    transition:
+      - parallel_primary_complete: next_phase
+      - timeout_exceeded: error_handler
+      - default: loops
+error_handler: heat-lme-mash-tank-error

@@ -8,6 +8,7 @@ they modify, validate, package, and execute.
 ## Layout
 
 - `workflows/` contains top-level entry points and orchestration.
+- `catalog/` describes the brewer-facing Programs screen and availability.
 - `procedures/brewing/` contains the standard beer-brewing program.
 - `incubator/maintenance/` preserves legacy service programs until they satisfy
   the current language and hardware contracts; incubator files are not shipped.

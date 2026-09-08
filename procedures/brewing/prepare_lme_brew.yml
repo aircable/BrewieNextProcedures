@@ -1,0 +1,107 @@
+name: prepare_lme_brew
+description: Review the LME recipe, load both dissolved extract charges, and confirm
+  the machine is ready.
+start_state: review_recipe
+states:
+  review_recipe:
+    description: Review the recipe and the two LME vessel charges.
+    action:
+    - notify_user:
+        text: Review the selected LME recipe.
+        readouts:
+        - label: Recipe
+          global: recipe_name
+        - label: Batch volume
+          global: batch_volume_L
+          unit: L
+        - label: Boil-tank water
+          global: lme_boil_tank_volume_L
+          unit: L
+        - label: Mash-tank water
+          global: lme_mash_tank_volume_L
+          unit: L
+        footer_text: Prepare both dissolved LME charges
+    - wait_for_user_input:
+        key: recipe_reviewed
+        expected_values:
+        - continue
+    timeout_s: 30m
+    transition:
+    - recipe_reviewed == "continue": load_lme_charges
+  load_lme_charges:
+    description: Load the initial dilute charge into the boil tank and concentrated
+      charge into the mash tank.
+    action:
+    - read_sensor: weight_boil_tank
+    - read_sensor: weight_mash_tank
+    - read_sensor: temp_boil_tank
+    - read_sensor: temp_mash_tank
+    - notify_user:
+        text: Load the dissolved LME charges into their tanks.
+        item_source:
+          global: fermentables
+        readouts:
+        - label: Boil-tank reading
+          sensor: weight_boil_tank
+          unit: L
+        - label: Boil water target
+          global: lme_boil_tank_volume_L
+          unit: L
+        - label: Mash-tank reading
+          sensor: weight_mash_tank
+          unit: L
+        - label: Mash water target
+          global: lme_mash_tank_volume_L
+          unit: L
+    - wait_for_user_input:
+        key: lme_charges_loaded
+        expected_values:
+        - loaded
+    timeout_s: 60m
+    transition:
+    - lme_charges_loaded == "loaded": load_hop_cages
+  load_hop_cages:
+    description: Load all four hop cages for the recipe's sixty-minute hopping schedule.
+    action:
+    - notify_user:
+        text: Load the hop cages. Times are minutes remaining in hopping.
+        item_source:
+          global: hop_additions
+    - wait_for_user_input:
+        key: hop_cages_loaded
+        expected_values:
+        - loaded
+    timeout_s: 60m
+    transition:
+    - hop_cages_loaded == "loaded": confirm_machine_ready
+  confirm_machine_ready:
+    description: Confirm the LME charges, filters, hop cages, and lids are ready.
+    action:
+    - read_sensor: temp_boil_tank
+    - read_sensor: temp_mash_tank
+    - notify_user:
+        text: Confirm the Brewie is loaded and ready to start the LME brew.
+        readouts:
+        - label: Boil temperature
+          sensor: temp_boil_tank
+          unit: °C
+        - label: Mash temperature
+          sensor: temp_mash_tank
+          unit: °C
+        checklist:
+        - Initial LME charge dissolved in the boil tank
+        - Concentrated LME charge dissolved in the mash tank
+        - Hop cages and filters installed
+        - Lids closed
+    - wait_for_user_input:
+        key: machine_ready
+        expected_values:
+        - start
+    on_exit:
+    - log_event: LME brew preparation confirmed
+    timeout_s: 30m
+    transition:
+    - machine_ready == "start": next_phase
+error_handler: prepare-lme-brew-error
+phase: prepare_lme_brew
+error: prepare-lme-brew-error

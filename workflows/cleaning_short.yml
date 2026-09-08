@@ -1,0 +1,5 @@
+schema_version: 1
+name: cleaning_short
+description: Short cleaning and rinse workflow (draft)
+
+steps: []

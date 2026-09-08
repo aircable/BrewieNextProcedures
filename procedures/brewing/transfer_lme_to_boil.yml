@@ -1,0 +1,101 @@
+name: transfer_lme_to_boil
+description: Transfer the heated concentrated LME charge from the mash tank into the boil tank after hopping.
+start_state: confirm_transfer
+states:
+  confirm_transfer:
+    description: Show both tanks and ask the brewer to authorize the mash-to-boil transfer.
+    action:
+      - read_sensor: temp_mash_tank
+      - read_sensor: temp_boil_tank
+      - read_sensor: weight_mash_tank
+      - read_sensor: weight_boil_tank
+      - notify_user:
+          text: Hopping is complete. Confirm the path is clear for the LME transfer.
+          readouts:
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+            - label: Mash-tank reading
+              sensor: weight_mash_tank
+              unit: L
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+            - label: Boil-tank reading
+              sensor: weight_boil_tank
+              unit: L
+      - wait_for_user_input:
+          key: lme_transfer_ready
+          expected_values: [transfer]
+    timeout_s: 30m
+    transition:
+      - lme_transfer_ready == "transfer": transfer_concentrate
+
+  transfer_concentrate:
+    description: Pump the mash-tank LME charge into the boil tank until the mash pump reports no load.
+    action:
+      - set_valve:
+          valve: boil_return_valve
+          state: closed
+      - set_valve:
+          valve: mash_inlet_valve
+          state: closed
+      - set_valve:
+          valve: mash_return_valve
+          state: open
+      - set_valve:
+          valve: boil_inlet_valve
+          state: open
+      - set_pump:
+          device: mash_pump
+          state: 'on'
+      - read_sensor: mash_pump_diagnostic
+      - read_sensor: weight_mash_tank
+      - read_sensor: weight_boil_tank
+      - read_sensor: temp_boil_tank
+      - notify_user:
+          text: Transferring the concentrated LME charge into the boil tank.
+          readouts:
+            - label: Mash-tank reading
+              sensor: weight_mash_tank
+              unit: L
+            - label: Boil-tank reading
+              sensor: weight_boil_tank
+              unit: L
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+    on_exit:
+      - set_pump:
+          device: mash_pump
+          state: 'off'
+      - set_valve:
+          valve: mash_return_valve
+          state: closed
+      - set_valve:
+          valve: boil_inlet_valve
+          state: closed
+    timeout_s: 5m
+    transition:
+      - mash_pump_diagnostic == 2: settle_transfer
+      - timeout_exceeded: error_handler
+      - default: loops
+
+  settle_transfer:
+    description: Let the transferred wort and tank readings settle before cooling.
+    action:
+      - notify_user:
+          text: LME transfer complete. Preparing to cool the combined wort.
+          readouts:
+            - label: Mash-tank reading
+              sensor: weight_mash_tank
+              unit: L
+            - label: Boil-tank reading
+              sensor: weight_boil_tank
+              unit: L
+    timeout_s: 10s
+    transition:
+      - duration_reached("5s"): next_phase
+      - timeout_exceeded: error_handler
+      - default: loops
+error_handler: transfer-lme-to-boil-error

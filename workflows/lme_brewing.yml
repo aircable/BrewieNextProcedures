@@ -1,0 +1,51 @@
+schema_version: 1
+name: lme_brewing
+description: Liquid malt extract brewing workflow (draft)
+default_recipe: lme_development
+
+steps:
+  - id: prepare_lme_brew
+    label: Prepare LME brew
+    description: Review the recipe and confirm both LME charges and hop cages are loaded.
+    procedure: prepare_lme_brew
+
+  - id: heat_lme_to_boil
+    label: Heat LME wort to boiling
+    description: Heat and circulate the initial boil-tank LME charge until it reaches boiling temperature.
+    procedure: heat_lme_to_boil
+
+  - parallel:
+      id: hopping_and_mash_heating
+      label: Hop while heating the second LME charge
+      primary: lme_hopping
+      branches:
+        - id: lme_hopping
+          label: LME hopping
+          description: Run the complete hop schedule while displaying both tanks.
+          procedure: lme_hopping
+        - id: heat_lme_mash_tank
+          label: Heat mash-tank LME charge
+          description: Heat and circulate the concentrated mash-tank charge until hopping finishes.
+          procedure: heat_lme_mash_tank
+      join:
+        deadline: lme_hopping
+        require:
+          heat_lme_mash_tank: completed
+        on_failure: lme-mash-heating-failed
+
+  - id: transfer_lme_to_boil
+    label: Transfer second LME charge
+    description: Move the heated concentrated LME charge from the mash tank into the boil tank.
+    procedure: transfer_lme_to_boil
+
+  - id: cooling
+    label: Cooling
+    procedure: cooling
+
+  - id: sedimentation
+    label: Sedimentation
+    procedure: sedimentation
+
+  - id: transfer_to_fermenter
+    label: Transfer to fermenter
+    procedure: transfer_to_fermenter

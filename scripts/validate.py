@@ -74,6 +74,7 @@ def validate(root=ROOT):
     errors = []
     procedure_schema = json.loads((root / "schemas/procedure.schema.json").read_text())
     workflow_schema = json.loads((root / "schemas/workflow.schema.json").read_text())
+    catalog_schema = json.loads((root / "schemas/program-catalog.schema.json").read_text())
     machine = load_yaml(root / "contracts/brewie-b20.yml")
     devices = machine["devices"]
     sensors = set(machine["sensors"])
@@ -88,6 +89,8 @@ def validate(root=ROOT):
 
     procedures = {}
     for path in sorted((root / "procedures").rglob("*.yml")):
+        if ".backups" in path.parts:
+            continue
         try:
             data = load_yaml(path)
         except (OSError, ValueError, yaml.YAMLError) as error:
@@ -116,8 +119,10 @@ def validate(root=ROOT):
                 if target not in states and target not in RESERVED_TARGETS:
                     errors.append(f"{relative}: state {state_name!r} targets missing state {target!r}")
 
+    workflows = {}
     for path in sorted((root / "workflows").glob("*.yml")):
         data = load_yaml(path)
+        workflows[data.get("name")] = data
         relative = path.relative_to(root)
         errors.extend(schema_errors(data, workflow_schema, relative))
         node_ids = []
@@ -138,6 +143,23 @@ def validate(root=ROOT):
         duplicates = sorted({node for node in node_ids if node_ids.count(node) > 1})
         if duplicates:
             errors.append(f"{relative}: duplicate workflow node IDs {duplicates}")
+
+    catalog_path = root / "catalog/programs.yml"
+    catalog = load_yaml(catalog_path)
+    errors.extend(schema_errors(catalog, catalog_schema, catalog_path.relative_to(root)))
+    program_ids = [program.get("id") for program in catalog.get("programs", []) if isinstance(program, dict)]
+    duplicates = sorted({program_id for program_id in program_ids if program_ids.count(program_id) > 1})
+    if duplicates:
+        errors.append(f"catalog/programs.yml: duplicate program IDs {duplicates}")
+    for program in catalog.get("programs", []):
+        if not isinstance(program, dict) or not program.get("workflow"):
+            continue
+        workflow = program.get("workflow")
+        if workflow not in workflows:
+            errors.append(
+                f"catalog/programs.yml: program {program.get('id')!r} "
+                f"references unknown workflow {workflow!r}"
+            )
     return errors
 
 
@@ -148,7 +170,10 @@ def main():
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    count = len(list((ROOT / "procedures").rglob("*.yml")))
+    count = len([
+        path for path in (ROOT / "procedures").rglob("*.yml")
+        if ".backups" not in path.parts
+    ])
     print(f"Validated {count} procedures and {len(list((ROOT / 'workflows').glob('*.yml')))} workflow(s).")
     return 0
 

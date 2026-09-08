@@ -1,0 +1,158 @@
+name: lme_hopping
+description: Execute the AVR-managed hop sequence while showing boil and mash-tank LME conditions.
+start_state: hop_stage_1
+states:
+  hop_stage_1:
+    description: Release cage 1 and circulate through it until cage 2 is due.
+    action:
+      - run_hop_stage:
+          open_cages: [1]
+          start_minutes_remaining: hop_cage_1_minutes_remaining
+          end_minutes_remaining: hop_cage_2_minutes_remaining
+          session: start
+      - read_sensor: temp_boil_tank
+      - read_sensor: temp_mash_tank
+      - read_sensor: weight_boil_tank
+      - read_sensor: weight_mash_tank
+      - notify_user:
+          text: Hop cage 1 released; heating the second LME charge in parallel.
+          readouts:
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+            - label: Mash target
+              global: lme_mash_target_temperature_C
+              unit: °C
+            - label: Mash-tank reading
+              sensor: weight_mash_tank
+              unit: L
+    timeout_s: 3h
+    transition:
+      - action_complete: hop_stage_2
+      - timeout_exceeded: error_handler
+      - default: loops
+
+  hop_stage_2:
+    description: Release cage 2 and continue heating both LME charges.
+    action:
+      - run_hop_stage:
+          open_cages: [1, 2]
+          start_minutes_remaining: hop_cage_2_minutes_remaining
+          end_minutes_remaining: hop_cage_3_minutes_remaining
+          session: continue
+      - read_sensor: temp_boil_tank
+      - read_sensor: temp_mash_tank
+      - read_sensor: weight_boil_tank
+      - read_sensor: weight_mash_tank
+      - notify_user:
+          text: Hop cage 2 released; LME hopping and mash-tank heating continue.
+          readouts:
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+            - label: Mash target
+              global: lme_mash_target_temperature_C
+              unit: °C
+            - label: Boil-tank reading
+              sensor: weight_boil_tank
+              unit: L
+    timeout_s: 3h
+    transition:
+      - action_complete: hop_stage_3
+      - timeout_exceeded: error_handler
+      - default: loops
+
+  hop_stage_3:
+    description: Release cage 3 and continue the parallel mash-tank hold.
+    action:
+      - run_hop_stage:
+          open_cages: [1, 2, 3]
+          start_minutes_remaining: hop_cage_3_minutes_remaining
+          end_minutes_remaining: hop_cage_4_minutes_remaining
+          session: continue
+      - read_sensor: temp_boil_tank
+      - read_sensor: temp_mash_tank
+      - read_sensor: weight_boil_tank
+      - read_sensor: weight_mash_tank
+      - notify_user:
+          text: Hop cage 3 released; monitoring both LME tanks.
+          readouts:
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+            - label: Mash target
+              global: lme_mash_target_temperature_C
+              unit: °C
+            - label: Mash-tank reading
+              sensor: weight_mash_tank
+              unit: L
+    timeout_s: 3h
+    transition:
+      - action_complete: hop_stage_4
+      - timeout_exceeded: error_handler
+      - default: loops
+
+  hop_stage_4:
+    description: Release cage 4 and finish the hop schedule while holding the mash-tank charge.
+    action:
+      - run_hop_stage:
+          open_cages: [1, 2, 3, 4]
+          start_minutes_remaining: hop_cage_4_minutes_remaining
+          end_minutes_remaining: 0
+          session: continue
+      - read_sensor: temp_boil_tank
+      - read_sensor: temp_mash_tank
+      - read_sensor: weight_boil_tank
+      - read_sensor: weight_mash_tank
+      - notify_user:
+          text: Final hopping interval; the mash-tank LME charge remains at temperature.
+          readouts:
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+            - label: Mash target
+              global: lme_mash_target_temperature_C
+              unit: °C
+            - label: Boil-tank reading
+              sensor: weight_boil_tank
+              unit: L
+    timeout_s: 3h
+    transition:
+      - action_complete: finish_hop_session
+      - timeout_exceeded: error_handler
+      - default: loops
+
+  finish_hop_session:
+    description: Stop the AVR hop session before transferring the second LME charge.
+    action:
+      - finish_avr_step_session:
+          operation: run_hop_stage
+      - read_sensor: temp_boil_tank
+      - read_sensor: temp_mash_tank
+      - notify_user:
+          text: Hopping complete; securing both heating circuits before transfer.
+          readouts:
+            - label: Boil temperature
+              sensor: temp_boil_tank
+              unit: °C
+            - label: Mash temperature
+              sensor: temp_mash_tank
+              unit: °C
+    timeout_s: 10s
+    transition:
+      - action_complete: next_phase
+      - timeout_exceeded: error_handler
+      - default: loops
+error_handler: lme-hopping-error

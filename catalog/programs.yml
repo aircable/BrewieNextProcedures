@@ -1,0 +1,22 @@
+schema_version: 1
+programs:
+  - id: beer_brewing
+    label: All-grain brewing
+    category: brewing
+    description: Brew from malted grain through mash, sparge, boil, cooling, and transfer.
+    status: available
+    workflow: beer_brewing
+
+  - id: lme_brewing
+    label: LME brewing
+    category: brewing
+    description: Brew from liquid malt extract without mashing or sparging.
+    status: design
+    workflow: lme_brewing
+
+  - id: cleaning_short
+    label: Short cleaning
+    category: cleaning
+    description: Run a short cleaning and rinse program between brewing sessions.
+    status: design
+    workflow: cleaning_short
