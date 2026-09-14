@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -42,10 +44,25 @@ class RepositoryTests(unittest.TestCase):
 
     def test_release_tag_matches_version(self):
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.2.0"],
+            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.2.1"],
             check=False, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_two_rest_mashing_holds_mash_in_temperature_without_setup_gate(self):
+        document = yaml.safe_load(
+            (ROOT / "procedures/brewing/two_rest_mashing.yml").read_text()
+        )
+        self.assertEqual(document["start_state"], "start_mash_recirculation")
+        self.assertNotIn("check_mash_setup", document["states"])
+        actions = document["states"]["start_mash_recirculation"]["action"]
+        self.assertIn(
+            {"set_heater": {
+                "device": "mash_heater",
+                "target_temp": "mash_in_temperature_C",
+            }},
+            actions,
+        )
 
 
 if __name__ == "__main__":

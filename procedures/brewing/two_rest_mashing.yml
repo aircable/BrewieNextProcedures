@@ -1,28 +1,13 @@
 name: two_rest_mashing
 description: Recirculate the mash through the recipe's two temperature rests
-start_state: check_mash_setup
+start_state: start_mash_recirculation
 states:
-  check_mash_setup:
-    description: Verify the transferred mash water is warm enough to begin
-    action:
-    - read_sensor: temp_mash_tank
-    - notify_user:
-        readouts:
-        - label: Water temperature
-          sensor: temp_mash_tank
-          unit: °C
-        - label: Rest 1 target
-          global: mash_rest_1_temperature_C
-          unit: °C
-        text: Preparing two-rest mash
-    timeout_s: 30s
-    transition:
-    - temp_mash_tank >= (mash_rest_1_temperature_C - 5.0): start_mash_recirculation
-    - timeout_exceeded: error_handler
-    - default: loops
   start_mash_recirculation:
-    description: Open the mash circulation path and start the mash pump
+    description: Hold the mash-in temperature, open the circulation path, and start the mash pump
     action:
+    - set_heater:
+        device: mash_heater
+        target_temp: mash_in_temperature_C
     - set_valve:
         valve: mash_inlet_valve
         state: open
