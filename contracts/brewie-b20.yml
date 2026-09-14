@@ -22,9 +22,8 @@ sensors:
   - weight_boil_tank
   - weight_mash_tank
   - water_volume
-  - mash_pump_tacho
-  - boil_pump_tacho
+  - mash_pump_current
+  - boil_pump_current
   - mash_pump_diagnostic
   - boil_pump_diagnostic
 operations: [run_hop_stage]
-

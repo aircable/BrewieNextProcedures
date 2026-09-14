@@ -44,7 +44,7 @@ class RepositoryTests(unittest.TestCase):
 
     def test_release_tag_matches_version(self):
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.2.1"],
+            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.2.2"],
             check=False, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -62,6 +62,11 @@ class RepositoryTests(unittest.TestCase):
                 "target_temp": "mash_in_temperature_C",
             }},
             actions,
+        )
+        self.assertIn({"read_sensor": "mash_pump_current"}, actions)
+        self.assertEqual(
+            document["states"]["start_mash_recirculation"]["transition"][0],
+            {"mash_pump_current > 100": "heat_to_rest_1"},
         )
 
 
