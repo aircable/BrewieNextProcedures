@@ -44,7 +44,7 @@ class RepositoryTests(unittest.TestCase):
 
     def test_release_tag_matches_version(self):
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.2.2"],
+            [sys.executable, str(ROOT / "scripts/check_tag.py"), "v0.2.3"],
             check=False, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -67,6 +67,10 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(
             document["states"]["start_mash_recirculation"]["transition"][0],
             {"mash_pump_current > 100": "heat_to_rest_1"},
+        )
+        self.assertEqual(
+            document["states"]["rest_1_hold"]["action"][2]["notify_user"]["readouts"][1],
+            {"label": "Rest 1 time", "remaining_state_time": True},
         )
 
 

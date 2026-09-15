@@ -60,8 +60,7 @@ states:
           sensor: temp_mash_tank
           unit: °C
         - label: Rest 1 time
-          global: mash_rest_1_duration_min
-          unit: min
+          remaining_state_time: true
         text: Mash rest 1 in progress
     on_exit:
     - disable_pid:
@@ -109,8 +108,7 @@ states:
           sensor: temp_mash_tank
           unit: °C
         - label: Rest 2 time
-          global: mash_rest_2_duration_min
-          unit: min
+          remaining_state_time: true
         text: Mash rest 2 in progress
     on_exit:
     - set_pump:
