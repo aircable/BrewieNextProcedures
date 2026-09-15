@@ -1,22 +1,14 @@
 name: heat_sparge_water
 description: Heat and circulate sparge water for the duration of two-rest mashing
-start_state: heat_and_circulate
+start_state: heat_no_circulate
 states:
-  heat_and_circulate:
-    description: Let the AVR regulate the boil tank at the recipe sparge temperature
+  heat_no_circulate:
+    description: Let the AVR regulate the boil tank at the recipe sparge temperature.
+      Mashing in progress thus no boil valve can open.
     action:
     - set_heater:
         device: boil_heater
         target_temp: sparge_target_temperature_C
-    - set_valve:
-        valve: boil_return_valve
-        state: open
-    - set_valve:
-        valve: boil_inlet_valve
-        state: open
-    - set_pump:
-        device: boil_pump
-        state: 'on'
     - notify_user:
         readouts:
         - label: Sparge target
@@ -27,16 +19,9 @@ states:
     - set_heater:
         device: boil_heater
         state: 'off'
-    - set_pump:
-        device: boil_pump
-        state: 'off'
-    - set_valve:
-        valve: boil_return_valve
-        state: closed
-    - set_valve:
-        valve: boil_inlet_valve
-        state: closed
     transition:
     - parallel_primary_complete: next_phase
     - default: loops
 error_handler: heat-sparge-water-error
+phase: heat_sparge_water
+error: heat-sparge-water-error
