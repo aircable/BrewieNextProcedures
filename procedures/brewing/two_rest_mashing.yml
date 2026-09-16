@@ -32,10 +32,10 @@ states:
     - set_pump:
         device: mash_pump
         state: 'on'
-    - read_sensor: mash_pump_tacho
+    - read_sensor: mash_pump_current
     timeout_s: 30s
     transition:
-    - mash_pump_tacho > 100: heat_to_rest_1
+    - mash_pump_current > 100: heat_to_rest_1
     - timeout_exceeded: error_handler
     - default: loops
   heat_to_rest_1:
@@ -153,3 +153,5 @@ states:
     transition:
     - default: next_phase
 error_handler: two-rest-mashing-error
+phase: two_rest_mashing
+error: two-rest-mashing-error

@@ -45,7 +45,6 @@ states:
     - temp_mash_tank >= (sparge_target_temperature_C - 1.0): initialize_sparge_cycles
     - timeout_exceeded: error_handler
     - default: loops
-
   initialize_sparge_cycles:
     description: Start with sparge cycle one
     action:
@@ -54,7 +53,6 @@ states:
         value: 1
     transition:
     - default: drain_mash_to_boil
-
   drain_mash_to_boil:
     description: Pump all available wort from the mash tank into the boil tank
     action:
@@ -96,16 +94,15 @@ states:
     - mash_pump_diagnostic == 2: settle_before_return
     - timeout_exceeded: error_handler
     - default: loops
-
   settle_before_return:
     description: Allow the transferred wort and load-cell reading to settle
     action: []
     timeout_s: 4s
     transition:
-    - 'duration_reached("4s")': return_twenty_liters_to_mash
-
+    - duration_reached("4s"): return_twenty_liters_to_mash
   return_twenty_liters_to_mash:
-    description: Return at most 20 L through the mash inlet without overflowing the mash tank
+    description: Return at most 20 L through the mash inlet without overflowing the
+      mash tank
     action:
     - set_valve:
         valve: mash_return_valve
@@ -151,14 +148,12 @@ states:
     - boil_pump_diagnostic == 2: error_handler
     - timeout_exceeded: error_handler
     - default: loops
-
   settle_before_next_cycle:
     description: Allow water to soak through the grain bed before draining again
     action: []
     timeout_s: 10s
     transition:
-    - 'duration_reached("10s")': drain_mash_to_boil
-
+    - duration_reached("10s"): drain_mash_to_boil
   finish_sparging:
     description: Leave all recovered wort in the boil tank and secure the flow paths
     action:
@@ -188,3 +183,5 @@ states:
     transition:
     - default: next_phase
 error_handler: sparging-error
+phase: sparging
+error: sparging-error
