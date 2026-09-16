@@ -23,12 +23,6 @@ states:
   pump_until_current_drop:
     description: Execute water transfer using burp method
     action:
-    - set_valve:
-        valve: boil_return_valve
-        state: open
-    - set_valve:
-        valve: mash_return_valve
-        state: open
     - set_pump:
         device: boil_pump
         state: 'on'
@@ -46,7 +40,7 @@ states:
     - set_valve:
         valve: boil_return_valve
         state: closed
-    timeout_s: 120s
+    timeout_s: 300s
     transition:
     - weight_boil_tank <= 1.5: check_remaining
     - boil_pump_diagnostic == 2: settle_water
@@ -81,3 +75,5 @@ states:
     transition:
     - default: next_phase
 error_handler: transfer-water-error
+phase: transfer_water_to_mash
+error: transfer-water-error

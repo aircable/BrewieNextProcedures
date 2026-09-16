@@ -136,3 +136,5 @@ states:
     transition:
     - default: next_phase
 error_handler: two-rest-mashing-error
+phase: two_rest_mashing
+error: two-rest-mashing-error
